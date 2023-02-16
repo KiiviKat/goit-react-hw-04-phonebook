@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Container } from './Container/Container.styled';
 import { Title } from './Title/Title';
 import { ContactForm } from './ContactForm/ContactForm';
@@ -7,11 +7,6 @@ import { ContactList } from './ContactList/ContactList';
 
 import { nanoid } from 'nanoid';
 import toast, { Toaster } from 'react-hot-toast';
-
-const INITIAL_STATE = {
-  contacts: [],
-  filter: '',
-};
 
 const INITIAL_CONTACTS = [
   { id: 'id-1', name: 'Rosie Simpson', number: '459-12-56' },
@@ -25,63 +20,60 @@ const TITLES = {
   contacts: 'Contacts',
 };
 
-export class App extends Component {
-  state = { ...INITIAL_STATE };
+const getInitialContacts = () => {
+  const parsedContacts = JSON.parse(localStorage.getItem('contacts'));
 
-  componentDidMount() {
-    const parsedContacts = JSON.parse(localStorage.getItem('contacts'));
-    if (parsedContacts) {
-      this.setState({ contacts: parsedContacts });
-    } else {
-      this.setState({ contacts: INITIAL_CONTACTS });
-    }
+  if (parsedContacts) {
+    return parsedContacts;
+  } else {
+    return INITIAL_CONTACTS;
   }
+};
 
-  componentDidUpdate(_, prevState) {
-    if (this.state.contacts !== prevState.contacts) {
-      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
-    }
-  }
+export const App = () => {
+  const [contacts, setContacts] = useState(getInitialContacts);
+  const [filter, setFilter] = useState('');
 
-  addContact = ({ name, number }) => {
-    if (this.state.contacts.find(contact => contact.name === name)) {
+  useEffect(() => {
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+  }, [contacts]);
+
+  const addContact = ({ name, number }) => {
+    if (contacts.find(contact => contact.name === name)) {
       toast.error(`Sorry, ${name} is already in contacts.`);
       return;
     }
-    this.setState(prevState => ({
-      contacts: [...prevState.contacts, { id: nanoid(), name, number }],
-    }));
+    setContacts(prevContacts => [
+      ...prevContacts,
+      { id: nanoid(), name, number },
+    ]);
     toast.success('Contact successfully added!');
   };
 
-  deleteContact = id => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== id),
-    }));
+  const deleteContact = id => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== id)
+    );
     toast.success('Contact was deleted!');
   };
 
-  filterContacts = evt => {
-    this.setState({ filter: evt.target.value });
+  const filterContacts = evt => {
+    setFilter(evt.target.value);
   };
 
-  render() {
-    const { contacts, filter } = this.state;
+  let visibleContacts = contacts.filter(contact =>
+    contact.name.toLowerCase().includes(filter.toLowerCase())
+  );
 
-    let visibleContacts = contacts.filter(contact =>
-      contact.name.toLowerCase().includes(filter.toLowerCase())
-    );
+  return (
+    <Container>
+      <Toaster position="top-left" />
+      <Title title={TITLES.form} />
+      <ContactForm onSubmit={addContact} />
 
-    return (
-      <Container>
-        <Toaster position="top-left" />
-        <Title title={TITLES.form} />
-        <ContactForm onSubmit={this.addContact} />
-
-        <Title title={TITLES.contacts} />
-        <Filter filter={filter} onFilterInput={this.filterContacts} />
-        <ContactList contacts={visibleContacts} onDelete={this.deleteContact} />
-      </Container>
-    );
-  }
-}
+      <Title title={TITLES.contacts} />
+      <Filter filter={filter} onFilterInput={filterContacts} />
+      <ContactList contacts={visibleContacts} onDelete={deleteContact} />
+    </Container>
+  );
+};
